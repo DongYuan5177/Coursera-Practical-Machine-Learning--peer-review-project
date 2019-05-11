@@ -1,0 +1,142 @@
+---
+title: "Machine Learning - Peer Graded Assignment"
+author: "Yuan Dong"
+date: "2019/5/11"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+## Executive Summary:
+Background: using devices such as Jawbone Up, Nike FuelBand, and Fitbit it is now possible to collect a large amount of data about personal activity relatively inexpensively. 
+
+Object: In this project, we will use data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants to predict 20 different test cases.
+
+Method: First we split the training dataset into 3 dataset: training_set, quiz_set and validation_set for train our model, cross-validation and calculate out of sample error, respectively. Then, we preprocessed the datasets and include only useful variables. Finally we used the method with highest accuracy to predict our test set.
+
+Result: We chose to use 3 methods (random forest, boosted trees and linear discriminant analysis) to train our training_set. We used quiz_set to find the method of best performance, which is random forest. Then we used random forest to predict validation_set, the out of sample error is (Accuracy: 0.9917), Finally we predict with the testing set, result is : B A B A A E D B A A B C B A E E A B B B.
+
+
+## Analysis
+### Preprocessing the data
+We split the training dataset into training_set, quiz_set and validation_set. 
+
+We noticed that many variables are near zero variables, and many variables contain nearly 100% of missing values, which are not helpful in predicting the outcome. So we excluded these variables in all datasets.
+
+Use featureplot, we found many variables, eg name, time, ect, are also useless in predicting the outcome, and excluded these variables in all datasets.
+
+### Choose the model
+
+#### First, we used 3 kinds of machine learning algorithms to train the training_set.
+Model 1: linear discriminant analysis ("lda") model;
+Model 2: boosted trees ("gbm") model;
+Model 3: random forest ("rf") model.
+
+#### Then we used these 3 models to predict quiz_set, and calculate the accuracy of each model.
+The accuracy for these 3 models were: 0.7042, 0.9609, 0.9927, respectively.
+
+The model 3, **random forest** had the higheset prediction accuracy.
+
+### Calculate out of sample error
+We used random forest to predict the validation_set and calculated the out of sample error, the accuracy is 0.9917.
+
+### Predict the testing set
+Finally we used random forest to predict with the testing set.
+The result were: B A B A A E D B A A B C B A E E A B B B
+
+
+## APPENDIX- ALL CHARTS & CODES
+Read in datas
+```{r, message=FALSE, cache=TRUE}
+setwd("/Users/yuandong/Downloads")
+training<-read.csv("pml-training.csv")
+testing<-read.csv("pml-testing.csv")
+```
+
+Split the training dataset into training_set, quiz_set and validation_set
+
+```{r,message=FALSE, cache=TRUE}
+set.seed(777)
+library(caret); library(dplyr)
+inBuild<-createDataPartition(y=training$classe, p=0.7,list=FALSE)
+validation_set<-training[-inBuild,]
+buildData<-training[inBuild,]
+inTrain<-createDataPartition(y=buildData$classe, p=0.7, list=FALSE)
+training_set<-buildData[inTrain,]
+quiz_set<-buildData[-inTrain,]
+```
+
+Removing zero covariates
+```{r, message=FALSE, cache=TRUE}
+nsv<-nearZeroVar(training_set)
+training_set<-select(training_set, -nsv)
+quiz_set<-select(quiz_set, -nsv)
+validation_set<-select(validation_set, -nsv)
+testing<-select(testing, -nsv)
+```
+
+Removing useless variables and variables with missing values 
+```{r, message=FALSE, cache=TRUE}
+colSums(is.na(training_set))
+```
+
+```{r, cache=TRUE, message=FALSE}
+training_set<-training_set[colSums(is.na(training_set))==0]
+quiz_set<-quiz_set[colSums(is.na(quiz_set))==0]
+validation_set<-validation_set[colSums(is.na(validation_set))==0]
+testing<-testing[colSums(is.na(testing))==0]
+```
+
+The first 6 variables seems useless in the prediction, we will plot a figure, and remove these variables
+```{r, cache=TRUE, message=FALSE}
+featurePlot(x=training_set[,c(1:6)], y=training_set$classe, plot = "pairs")
+training_set<-select(training_set, -c(1:6))
+quiz_set<-select(quiz_set, -c(1:6))
+validation_set<-select(validation_set, -c(1:6))
+testing<-select(testing, -c(1:6))
+```
+
+
+Use 3 kind of machine learning algorithms to train the training_set, and predict with quiz_set to get the accuracy.
+
+First, linear discriminant analysis ("lda") model
+
+```{r, message=FALSE, cache=TRUE}
+mod1<-train(classe~., method="lda",data=training_set)
+pre1<-predict(mod1, quiz_set)
+confusionMatrix(pre1, quiz_set$classe) #Accuracy : 0.7042  
+```
+
+Second, boosted trees ("gbm") model
+```{r, message=FALSE, cache=TRUE, eval=FALSE}
+mod2<-train(classe~., method="gbm", data=training_set)
+pre2<-predict(mod2, quiz_set)
+confusionMatrix(pre2, quiz_set$classe) #accuracy:0.9614
+```
+
+Third, random forest ("rf") model
+```{r, message=FALSE, cache=TRUE}
+mod3<-train(classe~., method="rf",data=training_set)
+pre3<-predict(mod3, quiz_set)
+confusionMatrix(pre3, quiz_set$classe) #accuracy:0.9918
+```
+
+
+```{r, message=FALSE, cache=TRUE, echo=FALSE}
+pre_comb<-data.frame(pre1,pre2,pre3, classe=quiz_set$classe)
+mod_comb<-train(classe~., method="rf", data=pre_comb)
+confusionMatrix(predict(mod_comb, pre_comb),pre_comb$classe)
+```
+
+Calculate out of sample error
+
+```{r, message=FALSE, cache=TRUE}
+confusionMatrix(predict(mod3, validation_set), validation_set$classe)
+```
+
+Use random forest to predict with the testing set.
+```{r, message=FALSE, cache=TRUE}
+predict(mod3, testing)
+```
+
